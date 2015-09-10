@@ -26,19 +26,19 @@ func initDatabase() {
 
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS "main"."hashes" ("hash" CHAR PRIMARY KEY  NOT NULL  UNIQUE);`)
 	if err != nil {
-		log.Printf("Could not create table.")
+		log.Fatal("Could not create table.")
 	}
 
 	_, err = db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS "main"."hashes_prefix" ON "hashes" ("hash" ASC);`)
 	if err != nil {
-		log.Printf("Could not create index.")
+		log.Fatal("Could not create index.")
 	}
 }
 
-func insertHash(hash string) {
+func insertHash(hash string) error {
 	db, err := sql.Open("sqlite3", DB_FILENAME)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer db.Close()
 
@@ -46,14 +46,15 @@ func insertHash(hash string) {
 
 	_, err = db.Exec("INSERT INTO hashes (hash) VALUES (?);", hash)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+	return nil
 }
 
-func deleteAllHashes(hash string) {
+func deleteAllHashes(hash string) error {
 	db, err := sql.Open("sqlite3", DB_FILENAME)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer db.Close()
 
@@ -61,14 +62,15 @@ func deleteAllHashes(hash string) {
 
 	_, err = db.Exec("DELETE FROM hashes;")
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+	return nil
 }
 
-func deleteHash(hash string) {
+func deleteHash(hash string) error {
 	db, err := sql.Open("sqlite3", DB_FILENAME)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer db.Close()
 
@@ -76,8 +78,9 @@ func deleteHash(hash string) {
 
 	_, err = db.Exec("DELETE FROM hashes WHERE hash = ?;", hash)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+	return nil
 }
 
 func getHashesForPrefix(prefix string) []string {

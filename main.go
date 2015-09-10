@@ -1,15 +1,22 @@
 package main
 
 import (
+	"crypto/subtle"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/docopt/docopt-go"
 	"github.com/gorilla/mux"
 )
+
+// The API password.
+var API_PASSWORD string = ""
 
 type HashRequest struct {
 	Prefixes []string
@@ -29,6 +36,45 @@ func (r JSONResponse) String() (s string) {
 
 type Hashes struct {
 	HashList map[string][]string
+}
+
+func getBasicAuthCredentials(r *http.Request) (username string, password string, auth_error error) {
+	s := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
+	if len(s) != 2 || s[0] != "Basic" {
+		auth_error = errors.New("No Basic Authorization Header")
+		return "", "", auth_error
+	}
+	b, err := base64.StdEncoding.DecodeString(s[1])
+	if err != nil {
+		auth_error = errors.New("Unable to decode username/password pair")
+		return "", "", auth_error
+	}
+	credentials := strings.SplitN(string(b), ":", 2)
+	return credentials[0], credentials[1], auth_error
+}
+
+func requireAuth(w http.ResponseWriter) {
+	w.Header().Set("WWW-Authenticate", `Basic realm="Contact Discovery"`)
+	w.WriteHeader(401)
+	fmt.Fprintf(w, "401 Unauthorized\n")
+}
+
+func verifyPassword(w http.ResponseWriter, r *http.Request) bool {
+	_, password, err := getBasicAuthCredentials(r)
+	if err != nil {
+		requireAuth(w)
+		return false
+	}
+
+	if len(password) < len(API_PASSWORD) {
+		password = password + strings.Repeat("*", len(API_PASSWORD)-len(password))
+	}
+
+	if subtle.ConstantTimeCompare([]byte(password[:len(API_PASSWORD)]), []byte(API_PASSWORD)) != 1 || len(API_PASSWORD) < len(password) {
+		requireAuth(w)
+		return false
+	}
+	return true
 }
 
 func getContactsView(w http.ResponseWriter, r *http.Request) {
@@ -53,26 +99,38 @@ func getContactsView(w http.ResponseWriter, r *http.Request) {
 }
 
 func addHashView(w http.ResponseWriter, r *http.Request) {
+	if !verifyPassword(w, r) {
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	hash := vars["hash"]
 
-	insertHash(hash)
+	err := insertHash(hash)
+	if err != nil {
+		fmt.Fprint(w, JSONResponse{"result": "error", "error": err.Error()})
+	} else {
+		fmt.Fprint(w, JSONResponse{"result": "success"})
+	}
 
-	fmt.Fprint(w, JSONResponse{"result": "success"})
 	return
 }
 
 func deleteHashView(w http.ResponseWriter, r *http.Request) {
+	if !verifyPassword(w, r) {
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	hash := vars["hash"]
 
-	deleteHash(hash)
-
-	fmt.Fprint(w, JSONResponse{"result": "success"})
+	if err := deleteHash(hash); err != nil {
+		fmt.Fprint(w, JSONResponse{"result": "error", "error": err.Error()})
+	} else {
+		fmt.Fprint(w, JSONResponse{"result": "success"})
+	}
 	return
 }
 
@@ -80,7 +138,7 @@ func main() {
 	usage := `contact-discovery
 
 Usage:
-  contact-discovery [options]
+  contact-discovery [options] <api_password>
 
 Options:
   -d --database=<filename>  The filename of the database file [default: contacts.sqlite3]
@@ -93,6 +151,9 @@ Options:
 	arguments, _ := docopt.Parse(usage, nil, true, "Contact Discovery Server", false)
 
 	initDatabase()
+
+	API_PASSWORD = arguments["<api_password>"].(string)
+
 	port, err := strconv.Atoi(arguments["--port"].(string))
 	if err != nil {
 		log.Fatal("Invalid port.")
