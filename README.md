@@ -17,7 +17,8 @@ At Silent Circle, we didn't want to know who your contacts are, for two reasons:
 * If we don't know who your friends are, we can't tell the NSA when they beat us
   with a rubber hose.
 
-To that end, Phil Zimmermann developed a protocol for performing contact
+To that end, Phil Zimmermann developed a protocol (we call it the Silent Circle
+Contact Discovery Protocol, or SCCDP for unpronounceable) for performing contact
 discovery without sending the server all your contacts. This readme is both
 a description of the protocol and a documentation of the prototype server
 included here.
