@@ -7,7 +7,7 @@ of your friends also have WhatsApp, so they can show you that you can talk to
 them.
 
 Usually, the process involves reading your whole address book, sending it off to
-a server somewhere (probably in China) for each contact to be looked up. The
+a server somewhere (probably to the NSA) for each contact to be looked up. The
 contacts that turn out to actually have the app installed are then returned,
 and the app knows that you can send those people a message.
 
